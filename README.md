@@ -59,8 +59,8 @@ main/
 Edit **`main/main.c`**:
 
 ```c
-#define WIFI_SSID "Airtel_123"
-#define WIFI_PASS "Ritesh@123"
+#define WIFI_SSID "WIFI_SSID"
+#define WIFI_PASS "WIFI_PASS"
 
 #define TM_DIO_PIN     GPIO_NUM_16
 #define TM_CLK_PIN     GPIO_NUM_17
@@ -147,29 +147,6 @@ Open **menuconfig** (VS Code → *SDK Configuration Editor*):
 - **Python requirements error** (ESP-IDF tools):
   - Run **`install.bat`** for your ESP-IDF version or VS Code command  
     **“ESP-IDF: Install ESP-IDF Python Packages”** targeting v5.3.1.
-
----
-
-## Git (for this branch)
-
-```bash
-git checkout feature/clock-ntp-tm1637
-# after amending commits:
-git push --force-with-lease origin feature/clock-ntp-tm1637
-# or, if you want to keep remote changes and replay yours:
-git pull --rebase origin feature/clock-ntp-tm1637
-git push origin feature/clock-ntp-tm1637
-```
-
----
-
-## Roadmap (optional ideas)
-
-- Fallback to external RTC (DS3231/DS1307) when no internet.
-- Attendance mode (SoftAP presence start/stop).
-- Alternate display modes (MM:SS for first hour, then HH:MM).
-- Buzzer/LED top-of-hour chime.
-
 ---
 
 **License:** same as repository’s root (or add one here if needed).
