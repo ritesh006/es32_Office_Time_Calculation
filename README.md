@@ -59,8 +59,8 @@ main/
 Edit **`main/main.c`**:
 
 ```c
-#define WIFI_SSID "Airtel_123"
-#define WIFI_PASS "Ritesh@123"
+#define WIFI_SSID "WIFI_SSID"
+#define WIFI_PASS "WIFI_PASS"
 
 #define TM_DIO_PIN     GPIO_NUM_16
 #define TM_CLK_PIN     GPIO_NUM_17
