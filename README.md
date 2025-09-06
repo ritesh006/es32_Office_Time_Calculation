@@ -1,53 +1,175 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 | Linux |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- | -------- | -------- | ----- |
+# esp32_Seven_Sement_Clock
 
-# Hello World Example
+The code lives on the **feature branch**:
+https://github.com/ritesh006/esp32_Seven_Sement_Clock/tree/feature/clock-ntp-tm1637
+# ESP32 Clock — UART (12-hour) + TM1637 (HH:MM, blinking colon) via NTP (IST)
 
-Starts a FreeRTOS task to print "Hello World".
+This branch turns an ESP32 into a tidy wall/desk clock:
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+- Connects to Wi-Fi (STA) and syncs time via **SNTP** in **immediate** mode (no smooth drift).
+- Waits for sync before showing anything (so you never see a wrong time).
+- Prints **12-hour time** with seconds on **UART** (single-line refresh).
+- Shows **HH:MM** on a **TM1637 4-digit** 7-segment with a **blinking colon**.
 
-## How to use example
+> Target timezone: **Asia/Kolkata (IST)**.
 
-Follow detailed instructions provided specifically for this example.
+---
 
-Select the instructions depending on Espressif chip installed on your development board:
+## Hardware
 
-- [ESP32 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html)
-- [ESP32-S2 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/get-started/index.html)
+- **ESP32** DevKit (ESP32-WROOM/ESP32-DevKitC)
+- **TM1637 4-digit** display module
 
+### Wiring
 
-## Example folder contents
+| TM1637 Pin | ESP32 Pin | Notes                                                              |
+|------------|-----------|--------------------------------------------------------------------|
+| VCC        | 5V        | 5V for good brightness (3.3V also works on many modules)          |
+| GND        | GND       | Common ground                                                      |
+| DIO        | GPIO16    | Configurable in code                                               |
+| CLK        | GPIO17    | Configurable in code                                               |
 
-The project **hello_world** contains one source file in C language [hello_world_main.c](main/hello_world_main.c). The file is located in folder [main](main).
+> TM1637 modules typically tolerate 3.3V logic even on 5V VCC (most have on-board resistors). If your module is unusual, power at 3.3V.
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt` files that provide set of directives and instructions describing the project's source files and targets (executable, library, or both).
+---
 
-Below is short explanation of remaining files in the project folder.
+## What you’ll see
+
+- **USB serial (UART0)** @ **115200 bps**: `hh:mm:ss AM/PM dd-mm-YYYY IST` (refreshed on one line).
+- **TM1637**: `HH:MM` (12-hour). The **colon blinks** every second.
+
+---
+
+## Project Layout (relevant files)
 
 ```
-├── CMakeLists.txt
-├── pytest_hello_world.py      Python script used for automated testing
-├── main
-│   ├── CMakeLists.txt
-│   └── hello_world_main.c
-└── README.md                  This is the file you are currently reading
+main/
+  ├─ main.c          // Wi-Fi STA + SNTP (IST) + UART + TM1637 update loop
+  ├─ tm1637.c        // Minimal bit-banged TM1637 driver
+  ├─ tm1637.h
+  └─ CMakeLists.txt  // Lists main.c + tm1637.c
 ```
 
-For more information on structure and contents of ESP-IDF projects, please refer to Section [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html) of the ESP-IDF Programming Guide.
+---
+
+## Quick Start
+
+### 1) Configure Wi-Fi and display pins
+
+Edit **`main/main.c`**:
+
+```c
+#define WIFI_SSID "Airtel_123"
+#define WIFI_PASS "Ritesh@123"
+
+#define TM_DIO_PIN     GPIO_NUM_16
+#define TM_CLK_PIN     GPIO_NUM_17
+#define TM_BRIGHTNESS  7   // 0..7
+```
+
+### 2) Build & Flash (VS Code ESP-IDF extension or CLI)
+
+**VS Code (recommended):**
+- `ESP-IDF: Full Clean` → `ESP-IDF: Build` → `ESP-IDF: Flash` → `ESP-IDF: Monitor`
+
+**CLI:**
+```bash
+idf.py set-target esp32
+idf.py fullclean
+idf.py build flash monitor
+```
+
+> Serial monitor default: **115200** baud.
+
+---
+
+## Important SDK settings
+
+Open **menuconfig** (VS Code → *SDK Configuration Editor*):
+
+1. **Event loop stack** (prevents `sys_evt` stack overflow):
+   - `Component config → Event loop library → Event loop task stack size` → **4096** (or **6144** if needed)
+
+2. **Flash size** (fixes “Detected 4096k larger than header 2048k”):
+   - `Serial flasher config → Flash size` → **4 MB (4096 kB)`
+   - Then `Full Clean` → Build → Flash  
+   - If still mismatched once, do `ESP-IDF: Erase Flash` and flash again
+
+> You can persist defaults via an optional `sdkconfig.defaults`:
+> ```
+> CONFIG_ESP_EVENT_LOOP_TASK_STACK_SIZE=4096
+> CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+> ```
+
+---
+
+## How time sync works (and why it looks instant)
+
+- SNTP servers: `pool.ntp.org`, `time.cloudflare.com`, `time.google.com`
+- **Immediate mode** is enabled → the system clock is set at once (no slow slewing).
+- The app **waits** for `SNTP_SYNC_STATUS_COMPLETED` before it prints/displays time.
+
+---
+
+## Customization
+
+- **24-hour display** (TM1637): change the hour fed into the TM1637 call:
+  ```c
+  // Instead of h12, use ti.tm_hour (00..23)
+  tm1637_show_hhmm((uint8_t)ti.tm_hour, (uint8_t)ti.tm_min, colon);
+  ```
+- **Quieter logs** after sync (keeps UART line clean):
+  ```c
+  // after time sync OK
+  esp_log_level_set("*", ESP_LOG_WARN);
+  ```
+- **Extra NTP sources**: add more `esp_sntp_setservername(index, "host")`.
+
+---
 
 ## Troubleshooting
 
-* Program upload failure
+- **Access denied / COM port busy**:
+  - Close other serial apps/monitors (Arduino, PuTTY, prior Monitor tabs).
+  - Unplug/replug USB. Reopen **Monitor** with only one instance.
 
-    * Hardware connection is not correct: run `idf.py -p PORT monitor`, and reboot your board to see if there are any output logs.
-    * The baud rate for downloading is too high: lower your baud rate in the `menuconfig` menu, and try again.
+- **Stack overflow in `sys_evt` or event loop**:
+  - Increase **Event loop task stack size** to **4096–6144** in menuconfig.
 
-## Technical support and feedback
+- **Flash size mismatch**:
+  - Set **Flash size = 4 MB** in menuconfig, `Full Clean`, Build, Flash.  
+  - If persistent once, run **Erase Flash** then Flash.
 
-Please use the following feedback channels:
+- **NTP doesn’t sync** (stuck on “Waiting for NTP…”):
+  - Ensure your Wi-Fi has internet and UDP/123 isn’t blocked.
+  - Try a different AP or mobile hotspot temporarily to verify.
 
-* For technical queries, go to the [esp32.com](https://esp32.com/) forum
-* For a feature request or bug report, create a [GitHub issue](https://github.com/espressif/esp-idf/issues)
+- **Python requirements error** (ESP-IDF tools):
+  - Run **`install.bat`** for your ESP-IDF version or VS Code command  
+    **“ESP-IDF: Install ESP-IDF Python Packages”** targeting v5.3.1.
 
-We will get back to you as soon as possible.
+---
+
+## Git (for this branch)
+
+```bash
+git checkout feature/clock-ntp-tm1637
+# after amending commits:
+git push --force-with-lease origin feature/clock-ntp-tm1637
+# or, if you want to keep remote changes and replay yours:
+git pull --rebase origin feature/clock-ntp-tm1637
+git push origin feature/clock-ntp-tm1637
+```
+
+---
+
+## Roadmap (optional ideas)
+
+- Fallback to external RTC (DS3231/DS1307) when no internet.
+- Attendance mode (SoftAP presence start/stop).
+- Alternate display modes (MM:SS for first hour, then HH:MM).
+- Buzzer/LED top-of-hour chime.
+
+---
+
+**License:** same as repository’s root (or add one here if needed).
