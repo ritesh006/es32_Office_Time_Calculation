@@ -16,5 +16,11 @@
     "--query-driver=C:\\Espressif\\tools\\xtensa-esp-elf\\esp-13.2.0_20240530\\xtensa-esp-elf\\bin\\xtensa-esp32-elf-gcc.exe",
     "--compile-commands-dir=${workspaceFolder}\\build"
   ],
-  "idf.flashType": "UART"
+  "idf.flashType": "UART",
+  "files.associations": {
+    "string.h": "c",
+    "freertos.h": "c",
+    "task.h": "c",
+    "esp_sntp.h": "c"
+  }
 }

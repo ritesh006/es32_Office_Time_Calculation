@@ -1,1 +1,10 @@
-build/
+/build/
+/sdkconfig.old
+/.vscode/
+/managed_components/
+/.idea/
+*.log
+*.map
+*.elf
+.DS_Store
+Thumbs.db
